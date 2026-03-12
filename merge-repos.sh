@@ -5,17 +5,11 @@ set -euo pipefail
 # CONFIGURATION
 # =========================
 MONOREPO_NAME="my-monorepo"
-MONOREPO_OWNER="your-github-username-or-org"
-MONOREPO_VISIBILITY="private"      # private|public|internal
 MONOREPO_DEFAULT_BRANCH="main"
-
-MONOREPO_URL=""  # leave blank to auto-create
+MONOREPO_URL=""
 
 WORKDIR="${PWD}/monorepo-work"
 MONOREPO_LOCAL="${WORKDIR}/${MONOREPO_NAME}"
-
-# export GITHUB_TOKEN="ghp_xxxxxxxxxxxxx"
-GITHUB_API="https://api.github.com"
 
 PREFIX_TAGS=true
 
@@ -30,7 +24,6 @@ REPOS_TO_IMPORT=(
 # =========================
 command -v git >/dev/null || { echo "❌ Git is required"; exit 1; }
 command -v git-filter-repo >/dev/null || { echo "❌ git-filter-repo is required"; exit 1; }
-command -v jq >/dev/null || { echo "❌ jq is required"; exit 1; }
 mkdir -p "$WORKDIR"
 git config --global --add safe.directory "$MONOREPO_LOCAL" || true
 
@@ -48,39 +41,6 @@ trap cleanup EXIT
 # =========================
 # FUNCTIONS
 # =========================
-create_github_repo_if_needed() {
-  if [ -n "$MONOREPO_URL" ]; then
-    echo "ℹ️  Using existing monorepo: $MONOREPO_URL"
-    return
-  fi
-  if [ -z "${GITHUB_TOKEN:-}" ]; then
-    echo "❌ Need GITHUB_TOKEN to auto-create repo"
-    exit 1
-  fi
-  echo "📦 Creating repo $MONOREPO_OWNER/$MONOREPO_NAME..."
-  endpoint="$GITHUB_API/user/repos"
-  auth_user=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
-    -H "Accept: application/vnd.github+json" "$GITHUB_API/user" | jq -r .login)
-  if [[ "$MONOREPO_OWNER" != "$auth_user" ]]; then
-    endpoint="$GITHUB_API/orgs/$MONOREPO_OWNER/repos"
-  fi
-
-  case "$MONOREPO_VISIBILITY" in
-    public)   vis_payload='"private":false' ;;
-    internal) vis_payload='"visibility":"internal"' ;; # Requires GHE or eligible plan
-    *)        vis_payload='"private":true' ;;
-  esac
-
-  payload="{\"name\":\"$MONOREPO_NAME\",$vis_payload}"
-  response=$(curl -sS -X POST \
-    -H "Authorization: token $GITHUB_TOKEN" \
-    -H "Accept: application/vnd.github+json" \
-    -d "$payload" "$endpoint")
-
-  MONOREPO_URL=$(echo "$response" | jq -r .clone_url)
-  [ "$MONOREPO_URL" != "null" ] || { echo "❌ Failed creating repo: $response"; exit 1; }
-}
-
 clone_monorepo() {
   if [ ! -d "$MONOREPO_LOCAL/.git" ]; then
     git clone "$MONOREPO_URL" "$MONOREPO_LOCAL"
@@ -167,7 +127,6 @@ import_repo() {
 # =========================
 # MAIN
 # =========================
-create_github_repo_if_needed
 clone_monorepo
 
 for entry in "${REPOS_TO_IMPORT[@]}"; do
@@ -185,14 +144,6 @@ if git tag | grep -q .; then
   git push -u origin "$MONOREPO_DEFAULT_BRANCH" --tags
 else
   git push -u origin "$MONOREPO_DEFAULT_BRANCH"
-fi
-
-if [ -n "${GITHUB_TOKEN:-}" ]; then
-  curl -sS -X PATCH \
-    -H "Authorization: token $GITHUB_TOKEN" \
-    -H "Accept: application/vnd.github+json" \
-    -d "{\"default_branch\":\"$MONOREPO_DEFAULT_BRANCH\"}" \
-    "$GITHUB_API/repos/$MONOREPO_OWNER/$MONOREPO_NAME" >/dev/null || true
 fi
 
 echo "✅ Done — all repos merged and pushed."
