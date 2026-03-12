@@ -11,6 +11,7 @@ MONOREPO_URL=""
 WORKDIR="${PWD}/monorepo-work"
 MONOREPO_LOCAL="${WORKDIR}/${MONOREPO_NAME}"
 
+# Prefix tags with <subdir> in case imported repos include identical tags
 PREFIX_TAGS=true
 
 # "<git_url> <subdir>"
@@ -132,6 +133,7 @@ clone_monorepo
 for entry in "${REPOS_TO_IMPORT[@]}"; do
   git_url=$(echo "$entry" | awk '{print $1}')
   subdir=$(echo "$entry" | awk '{print $2}')
+  # Check that <git_url> and <subdir> are defined
   if [ -z "$git_url" ] || [ -z "$subdir" ]; then
     echo "⚠️  Skipping malformed REPOS_TO_IMPORT entry: $entry"
     continue
