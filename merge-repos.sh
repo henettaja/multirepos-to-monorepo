@@ -18,7 +18,6 @@ MONOREPO_LOCAL="${WORKDIR}/${MONOREPO_NAME}"
 GITHUB_API="https://api.github.com"
 
 PREFIX_TAGS=true
-USE_GIT_LFS=true
 
 # "<git_url> <subdir>"
 REPOS_TO_IMPORT=(
@@ -32,9 +31,6 @@ REPOS_TO_IMPORT=(
 command -v git >/dev/null || { echo "❌ Git is required"; exit 1; }
 command -v git-filter-repo >/dev/null || { echo "❌ git-filter-repo is required"; exit 1; }
 command -v jq >/dev/null || { echo "❌ jq is required"; exit 1; }
-if [ "$USE_GIT_LFS" = true ]; then
-  command -v git-lfs >/dev/null || { echo "❌ git-lfs is required"; exit 1; }
-fi
 mkdir -p "$WORKDIR"
 git config --global --add safe.directory "$MONOREPO_LOCAL" || true
 
@@ -95,9 +91,6 @@ clone_monorepo() {
     git commit --allow-empty -m "chore: initial empty commit"
     git push -u origin "$MONOREPO_DEFAULT_BRANCH" || true
   fi
-  if [ "$USE_GIT_LFS" = true ]; then
-    git lfs install --local || true
-  fi
 }
 
 import_repo() {
@@ -124,11 +117,7 @@ import_repo() {
     return
   fi
 
-  if [ "$USE_GIT_LFS" = true ]; then
-    git lfs fetch --all || true
-  fi
-
-  # Improved default branch detection
+  # Default branch detection
   git remote set-head origin -a || true
   default_branch="$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##')"
   if [ -z "$default_branch" ]; then
