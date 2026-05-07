@@ -100,12 +100,7 @@ import_repo() {
 
   # Prefix tags if needed
   if [ "$PREFIX_TAGS" = true ] && git tag | grep -q .; then
-    tagmap="$(mktemp)"
-    git tag | while read -r t; do
-      [ -n "$t" ] && printf "%s %s-%s\n" "$t" "$subdir" "$t"
-    done > "$tagmap"
-    git filter-repo --force --tag-rename-file "$tagmap"
-    rm -f "$tagmap"
+      git filter-repo --force --tag-rename "":"$subdir-"
   fi
 
   # Move repo content into subdir
@@ -142,10 +137,10 @@ for entry in "${REPOS_TO_IMPORT[@]}"; do
 done
 
 cd "$LOCAL_MONOREPO_TARGET_DIR"
-# if git tag | grep -q .; then
-#   git push -u origin "$TARGET_MONOREPO_DEFAULT_BRANCH" --tags
-# else
-#   git push -u origin "$TARGET_MONOREPO_DEFAULT_BRANCH"
-# fi
+if git tag | grep -q .; then
+  git push -u origin "$TARGET_MONOREPO_DEFAULT_BRANCH" --tags
+else
+  git push -u origin "$TARGET_MONOREPO_DEFAULT_BRANCH"
+fi
 
 echo "✅ Done — all repos merged and pushed."
