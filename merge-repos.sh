@@ -4,12 +4,12 @@ set -euo pipefail
 # =========================
 # CONFIGURATION
 # =========================
-MONOREPO_NAME="my-monorepo"
-MONOREPO_DEFAULT_BRANCH="main"
-MONOREPO_URL=""
+TARGET_MONOREPO_LOCAL_NAME="syke-monorepo"
+TARGET_MONOREPO_DEFAULT_BRANCH="main"
+TARGET_MONOREPO_URL=""
 
 WORKDIR="${PWD}/monorepo-work"
-MONOREPO_LOCAL="${WORKDIR}/${MONOREPO_NAME}"
+LOCAL_MONOREPO_TARGET_DIR="${WORKDIR}/${TARGET_MONOREPO_LOCAL_NAME}"
 
 # Prefix tags with <subdir> in case imported repos include identical tags
 PREFIX_TAGS=true
@@ -26,7 +26,7 @@ REPOS_TO_IMPORT=(
 command -v git >/dev/null || { echo "❌ Git is required"; exit 1; }
 command -v git-filter-repo >/dev/null || { echo "❌ git-filter-repo is required"; exit 1; }
 mkdir -p "$WORKDIR"
-git config --global --add safe.directory "$MONOREPO_LOCAL" || true
+git config --global --add safe.directory "$LOCAL_MONOREPO_TARGET_DIR" || true
 
 # =========================
 # TEMP WORKSPACE & CLEANUP
@@ -43,14 +43,14 @@ trap cleanup EXIT
 # FUNCTIONS
 # =========================
 clone_monorepo() {
-  if [ ! -d "$MONOREPO_LOCAL/.git" ]; then
-    git clone "$MONOREPO_URL" "$MONOREPO_LOCAL"
+  if [ ! -d "$LOCAL_MONOREPO_TARGET_DIR/.git" ]; then
+      git clone "$TARGET_MONOREPO_URL" "$LOCAL_MONOREPO_TARGET_DIR"
   fi
-  cd "$MONOREPO_LOCAL"
-  git checkout -B "$MONOREPO_DEFAULT_BRANCH"
+  cd "$LOCAL_MONOREPO_TARGET_DIR"
+  git checkout -B "$TARGET_MONOREPO_DEFAULT_BRANCH"
   if ! git rev-parse --verify --quiet HEAD >/dev/null; then
     git commit --allow-empty -m "chore: initial empty commit"
-    git push -u origin "$MONOREPO_DEFAULT_BRANCH" || true
+    git push -u origin "$TARGET_MONOREPO_DEFAULT_BRANCH" || true
   fi
 }
 
@@ -73,7 +73,7 @@ import_repo() {
 
   if ! git rev-parse --verify --quiet HEAD >/dev/null; then
     echo "⚠️  Skipping $git_url — repository is empty."
-    cd "$MONOREPO_LOCAL"
+    cd "$LOCAL_MONOREPO_TARGET_DIR"
     rm -rf "$repo_dir"
     return
   fi
@@ -111,7 +111,7 @@ import_repo() {
   # Move repo content into subdir
   git filter-repo --force --to-subdirectory-filter "$subdir"
 
-  cd "$MONOREPO_LOCAL"
+  cd "$LOCAL_MONOREPO_TARGET_DIR"
   local remote_name="import_$subdir"
   git remote remove "$remote_name" 2>/dev/null || true
   git remote add "$remote_name" "$repo_dir"
@@ -141,11 +141,11 @@ for entry in "${REPOS_TO_IMPORT[@]}"; do
   import_repo "$git_url" "$subdir"
 done
 
-cd "$MONOREPO_LOCAL"
-if git tag | grep -q .; then
-  git push -u origin "$MONOREPO_DEFAULT_BRANCH" --tags
-else
-  git push -u origin "$MONOREPO_DEFAULT_BRANCH"
-fi
+cd "$LOCAL_MONOREPO_TARGET_DIR"
+# if git tag | grep -q .; then
+#   git push -u origin "$TARGET_MONOREPO_DEFAULT_BRANCH" --tags
+# else
+#   git push -u origin "$TARGET_MONOREPO_DEFAULT_BRANCH"
+# fi
 
 echo "✅ Done — all repos merged and pushed."
